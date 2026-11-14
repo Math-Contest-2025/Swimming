@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, user-scalable=yes">
+<meta name="theme-color" content="#3b82f6">
+<title>SwimTrack — Attendance & Payments</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Roboto,system-ui,sans-serif; -webkit-tap-highlight-color:transparent; }
+:root {
+  --primary: #3b82f6; --primary-light: #60a5fa; --secondary: #f3f4f6; --accent: #63b3ed;
+  --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --muted: #6b7280;
+  --light: #f8fafc; --gray: #9ca3af; --shadow:0 1px 2px rgba(0,0,0,0.05); --radius:8px;
+}
+html, body { max-width:100vw; overflow-x:hidden; }
+body { background:var(--light); color:var(--dark); display:flex; min-height:100vh; }
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  width:260px; background:var(--primary); color:white; display:flex; flex-direction:column;
+  padding:1.5rem 0; position:fixed; top:0; left:0; height:100vh; overflow-y:auto;
+  box-shadow:var(--shadow); z-index:100; transition:transform 0.3s ease;
+}
+.sidebar h2 { font-size:1.3rem; padding:0 1.5rem 1rem; border-bottom:1px solid rgba(255,255,255,0.3); margin-bottom:1rem; font-weight:500; letter-spacing:0.5px; }
+.sidebar .toggle-btn { display:none; width:36px; height:36px; background:rgba(255,255,255,0.2); border:none; border-radius:var(--radius); color:white; font-size:1.2rem; cursor:pointer; padding:0; margin:0.5rem 1rem; }
+.sidebar .toggle-btn:hover { background:rgba(255,255,255,0.3); }
+.sidebar .toggle-btn { display:none; width:36px; height:36px; background:rgba(255,255,255,0.2); border:none; border-radius:var(--radius); color:white; font-size:1.2rem; cursor:pointer; padding:0; margin:0.5rem 1rem; }
+.sidebar .toggle-btn:hover { background:rgba(255,255,255,0.3); }
+.sidebar nav a { display:flex; align-items:center; gap:12px; padding:0.8rem 1.5rem; color:rgba(255,255,255,0.9); text-decoration:none; transition:0.2s; font-size:0.95rem; }
+.sidebar nav a i { width:20px; text-align:center; flex-shrink:0; }
+.sidebar nav a.active, .sidebar nav a:hover { background:rgba(255,255,255,0.2); color:white; border-left:4px solid var(--accent); padding-left:calc(1.5rem - 4px); }
+
+/* Mobile menu button + overlay */
+.menu-toggle {
+  display: block; position: fixed; top: 12px; left: 12px; z-index: 200;
+  background: var(--primary); color: white; border: none; border-radius: 8px;
+  padding: 10px 14px; font-size: 1.1rem; cursor: pointer; box-shadow: var(--shadow);
+}
+.sidebar-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 90;
+}
+
+/* Sync status bar */
+.sync-bar {
+  position:fixed; top:0; left:260px; right:0; height:44px;
+  background:white; border-bottom:1px solid #e2e8f0; z-index:80;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 1.2rem; font-size:0.82rem; gap:0.5rem; flex-wrap:wrap;
+}
+.sync-status { display:flex; align-items:center; gap:8px; }
+.sync-dot { width:10px; height:10px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+.sync-dot.online { background:var(--success); }
+.sync-dot.offline { background:var(--danger); }
+.sync-dot.syncing { background:var(--warning); animation:pulse 1s infinite; }
+.sync-dot.error { background:var(--danger); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+/* ===== MAIN ===== */
+/* ===== MAIN ===== */
+.main {
+  flex:1; margin-left:260px; padding:60px 2rem 2rem; width:calc(100% - 260px);
+  min-width:0;
+}
+
+/* ===== CARDS ===== */
+.card-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:1.5rem; margin-bottom:2rem; }
+.stat-card { background:white; border-radius:var(--radius); padding:1.5rem 1.2rem; box-shadow:var(--shadow); border-left:4px solid var(--primary); transition:0.3s; min-width:0; }
+.stat-card .label { font-size:0.85rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted); margin-bottom:8px; }
+.stat-card .value { font-size:2rem; font-weight:600; color:var(--dark); }
+.stat-card .value { font-size:1.4rem; font-weight:600; color:var(--dark); word-break:break-word; }
+
+/* ===== SECTIONS ===== */
+.section { background:white; border-radius:var(--radius); padding:1.5rem; margin-bottom:1.8rem; box-shadow:var(--shadow); min-width:0; }
+.section h3 { font-size:1.1rem; font-weight:600; margin-bottom:1.2rem; display:flex; align-items:center; gap:8px; color:var(--primary); flex-wrap:wrap; }
+
+/* ===== FORMS ===== */
+.flex-row { display:flex; flex-wrap:wrap; gap:1rem; align-items:flex-end; }
+.form-group { display:flex; flex-direction:column; gap:4px; flex:1 1 140px; min-width:0; }
+.form-group label { font-size:0.72rem; text-transform:uppercase; color:var(--gray); font-weight:600; }
+input, select, button { padding:0.65rem 0.8rem; border:1px solid #d0dbe0; border-radius:8px; font-size:0.9rem; background:white; transition:0.2s; width:100%; max-width:100%; }
+input:focus, select:focus { outline:2px solid var(--primary-light); border-color:transparent; }
+button { background:var(--primary); color:white; border:none; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; justify-content:center; width:auto; }
+button:hover { background:var(--primary-light); }
+button.secondary { background:var(--secondary); color:var(--dark); }
+button.danger { background:var(--danger); }
+button.small { padding:0.35rem 0.7rem; font-size:0.78rem; width:auto; }
+
+/* ===== TABLES ===== */
+.table-wrapper { overflow-x:auto; margin-top:0.8rem; border-radius:10px; border:1px solid #e9eef2; -webkit-overflow-scrolling:touch; }
+table { width:100%; border-collapse:collapse; font-size:0.85rem; min-width:600px; }
+th { background:#f4f8fa; color:var(--dark); font-weight:600; padding:0.7rem 0.8rem; text-align:left; border-bottom:1px solid #dce5e9; white-space:nowrap; }
+td { padding:0.7rem 0.8rem; border-bottom:1px solid #ecf1f4; }
+
+/* ===== BADGES ===== */
+.badge { padding:0.2rem 0.7rem; border-radius:20px; font-size:0.72rem; font-weight:600; display:inline-block; white-space:nowrap; }
+.badge-unpaid { background:#fee2e2; color:#ef4444; }
+.badge-partial { background:#fef3c7; color:#f59e0b; }
+.badge-paid { background:#d1fae5; color:#10b981; }
+
+/* ===== CHARTS ===== */
+.charts-row { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-top:1.5rem; }
+.chart-box { background:white; border-radius:var(--radius); padding:1rem; box-shadow:var(--shadow); height:280px; position:relative; }
+
+/* ===== UTILITIES ===== */
+.mt-1 { margin-top:0.5rem; } .mt-2 { margin-top:1rem; } .mb-1 { margin-bottom:0.5rem; }
+.hidden { display:none !important; }
+.text-center { text-align:center; } .text-muted { color:var(--gray); font-size:0.85rem; }
+.toast { position:fixed; bottom:20px; right:20px; background:var(--dark); color:white; padding:0.8rem 1.5rem; border-radius:40px; box-shadow:0 4px 15px rgba(0,0,0,0.3); opacity:0; transition:0.3s; z-index:999; font-size:0.9rem; max-width:calc(100vw - 40px); }
+.toast.show { opacity:1; }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  .charts-row { grid-template-columns:1fr; }
+}
+
+@media (max-width: 900px) {
+  .sidebar { transform:translateX(-100%); width:260px; }
+  .sidebar.open { transform:translateX(0); }
+  .sidebar-overlay.show { display:block; }
+  .menu-toggle { display:block; }
+  .main { margin-left:0; width:100%; padding:60px 1rem 2rem; }
+  .sync-bar { left:0; padding:0 0.8rem; font-size:0.75rem; height:auto; min-height:48px; }
+  .card-grid { grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:0.8rem; }
+  .stat-card .value { font-size:1.15rem; }
+  .section { padding:1rem; }
+  .form-group { flex:1 1 100%; }
+  .flex-row button { width:100%; }
+  .chart-box { height:240px; }
+}
+
+@media (max-width: 480px) {
+  .card-grid { grid-template-columns:1fr 1fr; gap:0.6rem; }
+  .stat-card { padding:0.8rem; border-left-width:4px; }
+  .stat-card .label { font-size:0.65rem; }
+  .stat-card .value { font-size:1rem; }
+  .section h3 { font-size:1rem; }
+  .chart-box { height:200px; }
+  table { font-size:0.78rem; min-width:520px; }
+  th, td { padding:0.5rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- Mobile menu toggle -->
+<button class="menu-toggle" id="menuToggle" aria-label="Open menu"><i class="fas fa-bars"></i></button>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <h2><i class="fas fa-swimmer"></i> SwimTrack</h2>
+  <nav>
+    <a href="#" class="active" data-view="dashboard"><i class="fas fa-chart-pie"></i> <span>Dashboard</span></a>
+    <a href="#" data-view="attendance"><i class="fas fa-calendar-check"></i> <span>Attendance</span></a>
+    <a href="#" data-view="history"><i class="fas fa-history"></i> <span>History</span></a>
+    <a href="#" data-view="payments"><i class="fas fa-money-bill-wave"></i> <span>Payments</span></a>
+    <a href="#" data-view="outstanding"><i class="fas fa-exclamation-circle"></i> <span>Outstanding</span></a>
+    <a href="#" data-view="cashbook"><i class="fas fa-book"></i> <span>Cashbook</span></a>
+    <a href="#" data-view="reports"><i class="fas fa-file-alt"></i> <span>Reports</span></a>
+    <a href="#" data-view="backup"><i class="fas fa-database"></i> <span>Backup</span></a>
+    <a href="#" data-view="settings"><i class="fas fa-cog"></i> <span>Settings</span></a>
+    <a href="#" data-view="arrears"><i class="fas fa-clock"></i> <span>Opening Arrears</span></a>
+  </nav>
+</aside>
+
+<!-- SYNC BAR -->
+<div class="sync-bar" id="syncBar">
+  <div class="sync-status">
+    <span class="sync-dot" id="syncDot"></span>
+    <span id="syncText">Checking connection…</span>
+  </div>
+  <div style="display:flex; gap:0.5rem; align-items:center;">
+    <span class="text-muted" id="pendingText" style="font-size:0.72rem;"></span>
+    <button class="small" id="syncNowBtn" title="Sync now"><i class="fas fa-sync-alt"></i> <span style="display:none;" class="sync-label">Sync</span></button>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <div id="view-dashboard" class="view">
+    <h1 style="font-weight:500; margin-bottom:1.2rem; font-size:1.5rem;">Dashboard</h1>
+    <div class="card-grid" id="dashboard-stats"></div>
+    <div class="charts-row">
+      <div class="chart-box"><canvas id="attendanceChart"></canvas></div>
+      <div class="chart-box"><canvas id="revenueChart"></canvas></div>
+    </div>
+    <div class="section mt-2">
+      <h3><i class="fas fa-chart-line"></i> Monthly Payment Performance</h3>
+      <div class="chart-box" style="height:220px;"><canvas id="monthlyChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ATTENDANCE -->
+  <div id="view-attendance" class="view hidden">
+    <h1 style="font-weight:500; margin-bottom:1rem; font-size:1.5rem;">Swimming Attendance</h1>
+    <div class="section">
+      <h3><i class="fas fa-plus-circle"></i> Record Attendance</h3>
+      <div class="flex-row">
+        <div class="form-group"><label>Date</label><input type="date" id="attendance-date"></div>
+        <div class="form-group"><label>Number of Swimmers</label><input type="number" id="attendance-count" min="0" step="1" placeholder="e.g. 25"></div>
+        <div class="form-group"><label>Expected Amount (KES)</label><input type="text" id="attendance-amount" readonly value="0" style="background:#f0f4f7;"></div>
+        <button id="save-attendance"><i class="fas fa-save"></i> Save</button>
+      </div>
+      <p class="text-muted mt-1">Rate: KES 150 per swimmer. Historical dates allowed.</p>
+    </div>
+    <div class="section">
+      <h3><i class="fas fa-list"></i> Recent Attendance</h3>
+      <div class="table-wrapper">
+        <table id="attendance-table">
+          <thead><tr><th>Date</th><th>Swimmers</th><th>Expected (KES)</th><th>Paid (KES)</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="view-history" class="view hidden">
+    <h1 style="font-weight:500; margin-bottom:1rem; font-size:1.5rem;">Attendance History</h1>
+    <div class="section">
+      <div class="flex-row mb-1"><input type="text" id="history-search" placeholder="Search by date..." style="flex:1;"></div>
+      <div class="table-wrapper">
+        <table id="history-table">
+          <thead><tr><th>Date</th><th>Swimmers</th><th>Expected (KES)</th><th>Paid (KES)</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYMENTS -->
+  <div id="view-payments" class="view hidden">
+    <h1 style="font-weight:500; margin-bottom:1rem; font-size:1.5rem;">Coach Payments</h1>
+    <div class="section">
+      <h3><i class="fas fa-hand-holding-usd"></i> Record Payment</h3>
+      <div class="flex-row">
+        <div class="form-group"><label>Payment Date</label><input type="date" id="payment-date"></div>
+        <div class="form-group"><label>Amount (KES)</label><input type="number" id="payment-amount" min="1" step="1" placeholder="0"></div>
+        <div class="form-group"><label>Reference</label><input type="text" id="payment-ref" placeholder="Receipt #"></div>
+        <div class="form-group"><label>Notes</label><input type="text" id="payment-notes" placeholder="Notes"></div>
+        <div class="form-group"><label>Allocation</label>
+          <select id="payment-allocation">
+            <option value="auto">Auto (oldest first)</option>
+            <option value="manual">Manual (select dates)</option>
+          </select>
+        </div>
+        <button id="save-payment"><i class="fas fa-check"></i> Record</button>
+      </div>
+      <div id="manual-allocation" class="mt-1 hidden">
+        <label style="font-size:0.8rem; font-weight:600;">Select attendance dates to allocate:</label>
+        <div id="allocation-list" style="max-height:160px; overflow-y:auto; border:1px solid #e0e8ed; border-radius:8px; padding:0.5rem; margin-top:0.3rem;"></div>
+      </div>
+    </div>
+    <div class="section">
+      <h3><i class="fas fa-receipt"></i> Payment History</h3>
+      <div class="table-wrapper">
+        <table id="payment-table">
+          <thead><tr><th>Date</th><th>Amount (KES)</th><th>Reference</th><th>Notes</th><th>Allocated To</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- OUTSTANDING -->
+  <div id="view-outstanding" class="view hidden">
+    <h1 style="font-weight:500; margin-bottom:1rem; font-size:1.5rem;">Outstanding Balances</h1>
+    <div class="card-grid" id="outstanding-summary"></div>
+    <div class="section">
+      <div class="table-wrapper">
+        <table id="outstanding-table">
+          <thead><tr><th>Attendance Date</th><th>Swimmers</th><th>Expected (KES)</th><th>Paid (KES)</th><th>Balance (KES)</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CASHBOOK -->
+  <div id="view-cashbook" class="view hidden">
+    <h1 style="font-weight:500; margin-bottom:1rem; font-size:1.5rem;">Cashbook</h1>
+    <div class="card-grid" id="cashbook-summary"></div>
+    <div class="section">
+      <h3><i class="fas fa-plus-circle"></i> Add Cash Transaction</h3>
+      <div class="flex-row">
+        <div class="form-group"><label>Date</label><input type="date" id="cash-date"></div>
+        <div class="form-group"><label>Type</label>
+          <select id="cash-type">
+            <option value="income">Cash Received</option>
+            <option value="expense">Expense</option>
+            <option value="withdrawal">Withdrawal</option>
+            <option value="other_income">Other Income</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Amount (KES)</label><input type="number" id="cash-amount" min="0" step="1" placeholder="0"></div>
+        <div class="form-group"><label>Description</label><input type="text" id="cash-desc" placeholder="Description"></div>
+        <div class="form-group"><label>Reference</label><input type="text" id="cash-ref" placeholder="Optional"></div>
+        <button id="save-cash"><i class="fas fa-save"></i> Add</button>
+      </div>
+    </div>
+    <div class="section">
+      <h3><i class="fas fa-list"></i> Cash Transactions</h3>
+      <div class="table-wrapper">
+        <table id="cash-table">
+          <thead><tr><th>Date</th><th>Type</th><th>Amount (KES)</th><th>Description</th><th>Reference</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORTS -->
+  <div id="view-reports" class="view hidden">
+    <h1 style="font-weight:500; margin-bottom:1rem; font-size:1.5rem;">General Reports</h1>
+    <div class="section">
+      <div class="flex-row mb-1">
+        <div class="form-group"><label>From</label><input type="date" id="report-from"></div>
+        <div class="form-group"><label>To</label><input type="date" id="report-to"></div>
+        <button id="generate-report"><i class="fas fa-filter"></i> Generate</button>
+        <button id="export-csv" class="secondary"><i class="fas fa-file-csv"></i> CSV</button>
+        <button id="print-report" class="secondary"><i class="fas fa-print"></i> Print</button>
+      </div>
+    </div>
+    <div id="report-content" class="section">
+      <h3><i class="fas fa-file-invoice"></i> Report Summary</h3>
+      <div class="card-grid" id="report-stats"></div>
+      <div class="table-wrapper mt-1">
+        <table id="report-table">
+          <thead><tr><th>Date</th><th>Swimmers</th><th>Expected</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- BACKUP -->
+  <div id="view-backup" class="view hidden">
+    <h1 style="font-weight:500; margin-bottom:1rem; font-size:1.5rem;">Backup & Restore</h1>
+    <div class="section">
+      <h3><i class="fas fa-download"></i> Export Data</h3>
+      <button id="export-json"><i class="fas fa-file-code"></i> Download JSON Backup</button>
+    </div>
+    <div class="section">
+      <h3><i class="fas fa-upload"></i> Restore Data</h3>
+      <div class="flex-row">
+        <input type="file" id="import-file" accept=".json">
+        <button id="import-json" class="secondary"><i class="fas fa-upload"></i> Restore</button>
+      </div>
+      <p class="text-muted mt-1">Warning: Restoring will overwrite all current data.</p>
+    </div>
+    <div class="section">
+      <h3><i class="fas fa-trash-alt"></i> Reset</h3>
+      <button id="reset-data" class="danger"><i class="fas fa-exclamation-triangle"></i> Clear All Data</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="view-settings" class="view hidden">
+    <h1 style="font-weight:500; margin-bottom:1rem; font-size:1.5rem;">Settings</h1>
+    <div class="section">
+      <h3><i class="fas fa-coins"></i> Opening Cash Balance</h3>
+      <div class="flex-row">
+        <div class="form-group"><label>Opening Balance (KES)</label><input type="number" id="opening-balance" min="0" step="1" value="0"></div>
+        <button id="save-opening-balance"><i class="fas fa-save"></i> Save</button>
+      </div>
+      <p class="text-muted mt-1">Set your starting cash amount. Only affects cash in hand calculation.</p>
+    </div>
+    <div class="section">
+      <h3><i class="fas fa-clock"></i> Opening Arrears</h3>
+      <div class="flex-row">
+        <div class="form-group"><label>Arrears Amount (KES)</label><input type="number" id="arrears-amount" min="0" step="1" value="0"></div>
+        <div class="form-group"><label>Effective Date</label><input type="date" id="arrears-effective-date"></div>
+        <div class="form-group"><label>Notes</label><input type="text" id="arrears-notes" placeholder="e.g. Previous debt"></div>
+      </div>
+      <p class="text-muted mt-1">Enter any outstanding balance from before you started using this system.</p>
+    </div>
+    <div class="section">
+      <h3><i class="fas fa-cloud"></i> Cloud Sync</h3>
+      <div class="flex-row">
+        <div class="form-group" style="flex:1 1 100%;"><label>Google Apps Script Web App URL</label>
+          <input type="url" id="cloud-url" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+        <button id="save-cloud-url" class="secondary"><i class="fas fa-save"></i> Save URL</button>
+        <button id="test-cloud" class="secondary"><i class="fas fa-vial"></i> Test Connection</button>
+      </div>
+      <p class="text-muted mt-1">Paste the Web App URL from your Code.gs deployment. Leave empty for offline-only mode.</p>
+    </div>
+  </div>
+
+  <!-- ARREARS -->
+  <div id="view-arrears" class="view hidden">
+    <h1 style="font-weight:500; margin-bottom:1rem; font-size:1.5rem;">Opening Arrears</h1>
+    <div class="section">
+      <h3><i class="fas fa-clock"></i> Existing Outstanding Balance</h3>
+      <div class="flex-row">
+        <div class="form-group"><label>Opening Balance (KES)</label><input type="number" id="arrears-amount-view" min="0" step="1" placeholder="0"></div>
+        <div class="form-group"><label>Effective Date</label><input type="date" id="arrears-effective-date-view"></div>
+        <div class="form-group"><label>Description / Notes</label><input type="text" id="arrears-notes-view" placeholder="e.g. Previous session debt"></div>
+        <button id="save-arrears-view"><i class="fas fa-save"></i> Save</button>
+      </div>
+    </div>
+    <div class="section">
+      <h3><i class="fas fa-chart-line"></i> Arrears Status</h3>
+      <div class="card-grid" id="arrears-status"></div>
+    </div>
+    <div class="section">
+      <h3><i class="fas fa-receipt"></i> Payment History Against Arrears</h3>
+      <div class="table-wrapper">
+        <table id="arrears-payment-table">
+          <thead><tr><th>Date</th><th>Amount (KES)</th><th>Allocated To Arrears</th><th>Remaining Arrears</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/*************************************************************
+ * CLOUD + INDEXEDDB + SYNC MODULE v2.0
+ * Google Sheets central database with automatic multi-browser sync
+ *************************************************************/
+const Cloud = (() => {
+  const DB_NAME = 'swimtrack_db';
+  const DB_VERSION = 1;
+  const STORES = ['attendance','payments','allocations','cash','settings','opening_arrears','meta'];
+  let db = null;
+  let cloudUrl = localStorage.getItem('swim_cloud_url') || '';
+  let deviceId = localStorage.getItem('swim_device_id');
+  let lastCloudVersion = localStorage.getItem('swim_last_cloud_version') || 0;
+  let deviceLastSync = localStorage.getItem('swim_device_last_sync') || '';
+  
+  if (!deviceId) {
+    deviceId = 'dev_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+    localStorage.setItem('swim_device_id', deviceId);
+  }
+  
+  let isSyncing = false;
+  let syncState = 'offline';
+  let pendingCount = 0;
+  let downloadCount = 0;
+  let uploadCount = 0;
+  let lastSuccessSync = localStorage.getItem('swim_last_success_sync') || '';
+
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = e => {
+        const d = e.target.result;
+        STORES.forEach(s => { if (!d.objectStoreNames.contains(s)) d.createObjectStore(s, { keyPath: 'id' }); });
+      };
+      req.onsuccess = e => { db = e.target.result; resolve(db); };
+      req.onerror = e => reject(e.target.error);
+    });
+  }
+
+  function put(store, obj) {
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      const r = tx.objectStore(store).put(obj);
+      r.onsuccess = () => res(obj);
+      r.onerror = () => rej(r.error);
+    });
+  }
+  function getAll(store) {
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readonly');
+      const r = tx.objectStore(store).getAll();
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  }
+  function del(store, id) {
+    return new Promise((res, rej) => {
+      const tx = db.transaction(store, 'readwrite');
+      const r = tx.objectStore(store).delete(id);
+      r.onsuccess = () => res();
+      r.onerror = () => rej(r.error);
+    });
+  }
+  function clearAll() {
+    return Promise.all(STORES.map(s => new Promise((res, rej) => {
+      const tx = db.transaction(s, 'readwrite');
+      const r = tx.objectStore(s).clear();
+      r.onsuccess = () => res(); r.onerror = () => rej(r.error);
+    })));
+  }
+
+  // Migrate from old localStorage keys
+  async function migrateLegacy() {
+    const meta = await getAll('meta');
+    if (meta.some(m => m.id === 'migrated')) return;
+    const legacy = {
+      attendance: JSON.parse(localStorage.getItem('swim_attendance') || '[]'),
+      payments: JSON.parse(localStorage.getItem('swim_payments') || '[]'),
+      cash: JSON.parse(localStorage.getItem('swim_cash') || '[]'),
+      allocations: JSON.parse(localStorage.getItem('swim_allocations') || '[]'),
+      settings: JSON.parse(localStorage.getItem('swim_settings') || 'null')
+    };
+    const now = new Date().toISOString();
+    for (const a of legacy.attendance) await put('attendance', { ...a, updated_at: a.createdAt || now, device_id: deviceId, sync_status: 'pending' });
+    for (const p of legacy.payments) await put('payments', { ...p, updated_at: p.createdAt || now, device_id: deviceId, sync_status: 'pending' });
+    for (const c of legacy.cash) await put('cash', { ...c, updated_at: c.createdAt || now, device_id: deviceId, sync_status: 'pending' });
+    for (const al of legacy.allocations) await put('allocations', { ...al, updated_at: al.createdAt || now, device_id: deviceId, sync_status: 'pending' });
+    if (legacy.settings) {
+      await put('settings', { id: 'app', ...legacy.settings, updated_at: now, device_id: deviceId, sync_status: 'pending' });
+      if (legacy.settings.openingArrears) {
+        await put('opening_arrears', { id: 'opening', ...legacy.settings.openingArrears, updated_at: now, device_id: deviceId, sync_status: 'pending' });
+      }
+    }
+    await put('meta', { id: 'migrated', at: now });
+  }
+
+  // Convert IndexedDB arrays to the shapes DB module expects
+  async function snapshot() {
+    const [attendance, payments, allocations, cash, settingsArr, arrearsArr] = await Promise.all([
+      getAll('attendance'), getAll('payments'), getAll('allocations'),
+      getAll('cash'), getAll('settings'), getAll('opening_arrears')
+    ]);
+    const settings = settingsArr.find(s => s.id === 'app') || { openingBalance: 0, openingArrears: null };
+    const openingArrears = arrearsArr.find(a => a.id === 'opening') || null;
+    settings.openingArrears = openingArrears;
+    return { attendance, payments, allocations, cash, settings };
+  }
+
+  async function syncNow() {
+    if (isSyncing || !cloudUrl || !navigator.onLine) return { skipped: true };
+    isSyncing = true;
+    updateSyncUI('syncing', 'Syncing…');
+    try {
+      const snap = await snapshot();
+      const push = {
+        Attendance: snap.attendance.filter(r => r.sync_status === 'pending'),
+        Payments: snap.payments.filter(r => r.sync_status === 'pending'),
+        Allocations: snap.allocations.filter(r => r.sync_status === 'pending'),
+        'Cash Transactions': snap.cash.filter(r => r.sync_status === 'pending'),
+        'Opening Arrears': snap.settings.openingArrears ? [{ ...snap.settings.openingArrears, id: 'opening' }] : [],
+        Settings: [{ id: 'app', key: 'openingBalance', value: snap.settings.openingBalance, updated_at: new Date().toISOString(), device_id: deviceId, sync_status: 'synced' }]
+      };
+      const lastSync = (await getAll('meta')).find(m => m.id === 'lastSync')?.at || null;
+
+      const res = await fetch(cloudUrl + '?action=sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Apps Script friendly
+        body: JSON.stringify({ deviceId, push, lastSync })
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Sync failed');
+
+      // Mark pushed records synced
+      for (const sheet of Object.keys(push)) {
+        const mapStore = { Attendance:'attendance', Payments:'payments', Allocations:'allocations',
+          'Cash Transactions':'cash', 'Opening Arrears':'opening_arrears', Settings:'settings' }[sheet];
+        if (!mapStore) continue;
+        for (const rec of push[sheet]) {
+          const existing = (await getAll(mapStore)).find(x => x.id === rec.id);
+          if (existing) { existing.sync_status = 'synced'; await put(mapStore, existing); }
+        }
+      }
+
+      // Merge pulled records (server wins for updated_at conflicts)
+      const pulled = json.results?.pulled || {};
+      for (const sheet of Object.keys(pulled)) {
+        const mapStore = { Attendance:'attendance', Payments:'payments', Allocations:'allocations',
+          'Cash Transactions':'cash', 'Opening Arrears':'opening_arrears', Settings:'settings' }[sheet];
+        if (!mapStore) continue;
+        for (const rec of pulled[sheet] || []) {
+          if (!rec.id) continue;
+          const local = (await getAll(mapStore)).find(x => x.id === rec.id);
+          if (!local || (rec.updated_at && rec.updated_at > (local.updated_at || ''))) {
+            await put(mapStore, { ...rec, sync_status: 'synced' });
+          }
+        }
+      }
+
+      await put('meta', { id: 'lastSync', at: new Date().toISOString() });
+      updateSyncUI('online', 'Synced just now');
+      return { ok: true };
+    } catch (e) {
+      console.error('Sync error:', e);
+      updateSyncUI('error', 'Sync failed: ' + e.message);
+      throw e;
+    } finally {
+      isSyncing = false;
+    }
+  }
+
+  function updateSyncUI(state, text) {
+    const dot = document.getElementById('syncDot');
+    const txt = document.getElementById('syncText');
+    if (!dot || !txt) return;
+    dot.className = 'sync-dot ' + state;
+    txt.textContent = text;
+    refreshPendingCount();
+  }
+
+  async function refreshPendingCount() {
+    try {
+      const [a,p,al,c] = await Promise.all([getAll('attendance'),getAll('payments'),getAll('allocations'),getAll('cash')]);
+      const n = [...a,...p,...al,...c].filter(r => r.sync_status === 'pending').length;
+      const el = document.getElementById('pendingText');
+      if (el) el.textContent = n ? n + ' pending' : '';
+    } catch (e) {}
+  }
+
+  async function init() {
+    await openDB();
+    await migrateLegacy();
+    window.addEventListener('online', () => { updateSyncUI('online', 'Online'); syncNow().catch(()=>{}); });
+    window.addEventListener('offline', () => updateSyncUI('offline', 'Offline — data saved locally'));
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) syncNow().catch(()=>{}); });
+    setInterval(() => { if (navigator.onLine) syncNow().catch(()=>{}); }, 60000);
+    updateSyncUI(navigator.onLine ? 'online' : 'offline', navigator.onLine ? 'Online' : 'Offline — data saved locally');
+    if (navigator.onLine) syncNow().catch(()=>{});
+  }
+
+  return {
+    init, snapshot, syncNow, put, getAll, del, clearAll,
+    getCloudUrl: () => cloudUrl,
+    setCloudUrl: (u) => { cloudUrl = u; localStorage.setItem('swim_cloud_url', u); },
+    getDeviceId: () => deviceId,
+    updateSyncUI
+  };
+})();
+
+/*************************************************************
+ * DATABASE MODULE (IndexedDB-backed, same public API as before)
+ *************************************************************/
+const DB = (() => {
+  // In-memory cache kept in sync with IndexedDB
+  let attendance = [];
+  let payments = [];
+  let cash = [];
+  let allocations = [];
+  let settings = { openingBalance: 0, openingArrears: null };
+
+  async function reload() {
+    const snap = await Cloud.snapshot();
+    attendance = snap.attendance;
+    payments = snap.payments;
+    allocations = snap.allocations;
+    cash = snap.cash;
+    settings = snap.settings || { openingBalance: 0, openingArrears: null };
+  }
+
+  const uid = () => 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  const now = () => new Date().toISOString();
+
+  async function persist(store, obj) {
+    obj.updated_at = now();
+    obj.device_id = Cloud.getDeviceId();
+    obj.sync_status = 'pending';
+    await Cloud.put(store, obj);
+  }
+
+  function computePaidPerAttendance() {
+    const paidMap = {};
+    attendance.forEach(a => paidMap[a.id] = 0);
+    allocations.forEach(al => {
+      if (al.attendanceId !== 'opening_arrears' && paidMap.hasOwnProperty(al.attendanceId)) {
+        paidMap[al.attendanceId] += al.amount;
+      }
+    });
+    return paidMap;
+  }
+  function getAllocatedToArrears() {
+    return allocations.filter(al => al.attendanceId === 'opening_arrears').reduce((s,al) => s+al.amount, 0);
+  }
+
+  async function addAttendance(date, count) {
+    if (!date || count < 1) throw new Error('Invalid attendance data');
+    if (attendance.some(a => a.date === date)) throw new Error('Attendance for this date already exists.');
+    const rec = { id: uid(), date, count, expected: count*150, created_at: now(), updated_at: now(), device_id: Cloud.getDeviceId(), sync_status: 'pending', deleted_at: null };
+    attendance.push(rec);
+    await persist('attendance', rec);
+    return rec;
+  }
+  async function updateAttendance(id, newDate, newCount) {
+    const rec = attendance.find(a => a.id === id);
+    if (!rec) throw new Error('Record not found');
+    if (attendance.some(a => a.date === newDate && a.id !== id)) throw new Error('Date conflict.');
+    rec.date = newDate; rec.count = newCount; rec.expected = newCount*150;
+    await persist('attendance', rec);
+    return rec;
+  }
+  async function deleteAttendance(id) {
+    allocations = allocations.filter(al => al.attendanceId !== id);
+    // delete related allocations from IndexedDB too
+    const allAl = await Cloud.getAll('allocations');
+    for (const al of allAl) if (al.attendanceId === id) await Cloud.del('allocations', al.id);
+    attendance = attendance.filter(a => a.id !== id);
+    await Cloud.del('attendance', id);
+  }
+
+  async function addPayment(date, amount, ref, notes, allocationMode, manualSelections) {
+    if (!date || amount <= 0) throw new Error('Invalid payment data');
+    const openingArrears = settings.openingArrears || { amount: 0 };
+    const paidMap = computePaidPerAttendance();
+    const allocatedToArrearsSoFar = getAllocatedToArrears();
+    let remaining = amount;
+    const newAllocations = [];
+
+    if (openingArrears.amount && openingArrears.amount > 0 && remaining > 0) {
+      const arrearsBalance = openingArrears.amount - allocatedToArrearsSoFar;
+      if (arrearsBalance > 0) {
+        const allocate = Math.min(remaining, arrearsBalance);
+        newAllocations.push({ attendanceId: 'opening_arrears', amount: allocate });
+        remaining -= allocate;
+      }
+    }
+    if (remaining > 0) {
+      let list;
+      if (allocationMode === 'manual') {
+        if (!manualSelections || !manualSelections.length) throw new Error('Select at least one attendance date.');
+        list = attendance.filter(a => manualSelections.includes(a.id) && (a.expected - (paidMap[a.id]||0)) > 0)
+          .sort((a,b) => new Date(a.date) - new Date(b.date));
+      } else {
+        list = attendance.filter(a => (a.expected - (paidMap[a.id]||0)) > 0)
+          .sort((a,b) => new Date(a.date) - new Date(b.date));
+      }
+      for (const att of list) {
+        if (remaining <= 0) break;
+        const bal = att.expected - (paidMap[att.id]||0);
+        const allocate = Math.min(remaining, bal);
+        if (allocate > 0) { newAllocations.push({ attendanceId: att.id, amount: allocate }); remaining -= allocate; }
+      }
+    }
+
+    const payment = { id: uid(), date, amount, ref: ref||'', notes: notes||'', created_at: now(), updated_at: now(), device_id: Cloud.getDeviceId(), sync_status: 'pending', deleted_at: null };
+    payments.push(payment);
+    await persist('payments', payment);
+
+    for (const al of newAllocations) {
+      const a = { id: uid(), paymentId: payment.id, attendanceId: al.attendanceId, amount: al.amount, created_at: now(), updated_at: now(), device_id: Cloud.getDeviceId(), sync_status: 'pending', deleted_at: null };
+      allocations.push(a);
+      await persist('allocations', a);
+    }
+    const c = { id: uid(), date, type: 'income', amount, description: `Coach payment (Ref: ${ref||'N/A'})`, reference: ref||'', linkedPaymentId: payment.id, created_at: now(), updated_at: now(), device_id: Cloud.getDeviceId(), sync_status: 'pending', deleted_at: null };
+    cash.push(c);
+    await persist('cash', c);
+    return { payment, allocations: newAllocations, unallocated: remaining };
+  }
+
+  async function deletePayment(id) {
+    const c = cash.find(x => x.linkedPaymentId === id);
+    if (c) { await Cloud.del('cash', c.id); cash = cash.filter(x => x.id !== c.id); }
+    const al = allocations.filter(x => x.paymentId === id);
+    for (const a of al) await Cloud.del('allocations', a.id);
+    allocations = allocations.filter(x => x.paymentId !== id);
+    await Cloud.del('payments', id);
+    payments = payments.filter(p => p.id !== id);
+  }
+
+  async function addCashTransaction(date, type, amount, description, reference) {
+    if (!date || amount <= 0) throw new Error('Invalid cash transaction');
+    const rec = { id: uid(), date, type, amount, description: description||'', reference: reference||'', created_at: now(), updated_at: now(), device_id: Cloud.getDeviceId(), sync_status: 'pending', deleted_at: null };
+    cash.push(rec);
+    await persist('cash', rec);
+    return rec;
+  }
+  async function deleteCashTransaction(id) {
+    await Cloud.del('cash', id);
+    cash = cash.filter(c => c.id !== id);
+  }
+
+  async function setOpeningBalance(val) {
+    settings.openingBalance = val;
+    const existing = (await Cloud.getAll('settings')).find(s => s.id === 'app') || { id: 'app' };
+    await persist('settings', { ...existing, openingBalance: val });
+  }
+  async function setOpeningArrears(arrears) {
+    const rec = { id: 'opening', ...arrears, adjustedAt: now(), updated_at: now(), device_id: Cloud.getDeviceId(), sync_status: 'pending', deleted_at: null };
+    settings.openingArrears = rec;
+    await persist('opening_arrears', rec);
+  }
+
+  async function resetAll() {
+    await Cloud.clearAll();
+    attendance = []; payments = []; cash = []; allocations = [];
+    settings = { openingBalance: 0, openingArrears: null };
+  }
+
+  return {
+    reload, addAttendance, updateAttendance, deleteAttendance,
+    addPayment, deletePayment, addCashTransaction, deleteCashTransaction,
+    getAttendance: () => [...attendance],
+    getPayments: () => [...payments],
+    getCash: () => [...cash],
+    getAllocations: () => [...allocations],
+    getSettings: () => ({ ...settings }),
+    getOpeningArrears: () => settings.openingArrears || { amount: 0, date: null, description: '', reference: '' },
+    getAllocatedToArrears,
+    computePaidPerAttendance,
+    setOpeningBalance, setOpeningArrears, resetAll
+  };
+})();
+
+/*************************************************************
+ * UI CONTROLLER — Preserves ALL existing behavior
+ *************************************************************/
+(async function() {
+  await Cloud.init();
+  await DB.reload();
+
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => document.querySelectorAll(sel);
+  const fmt = n => 'KES ' + Number(n).toLocaleString('en-KE', { maximumFractionDigits: 0 });
+  function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+
+  // Mobile menu
+  const sidebar = $('#sidebar'), overlay = $('#sidebarOverlay'), menuBtn = $('#menuToggle');
+  menuBtn.addEventListener('click', () => { sidebar.classList.add('open'); overlay.classList.add('show'); });
+  overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
+
+  // Nav
+  const views = ['dashboard','attendance','history','payments','outstanding','cashbook','reports','backup','settings','arrears'];
+  function switchView(v) {
+    views.forEach(x => { const el = document.getElementById('view-'+x); if (el) el.classList.add('hidden'); });
+    const active = document.getElementById('view-'+v); if (active) active.classList.remove('hidden');
+    $$('.sidebar nav a').forEach(a => a.classList.remove('active'));
+    const link = document.querySelector(`.sidebar nav a[data-view="${v}"]`); if (link) link.classList.add('active');
+    if (window.innerWidth <= 900) { sidebar.classList.remove('open'); overlay.classList.remove('show'); }
+    if (v === 'dashboard') renderDashboard();
+    if (v === 'attendance') renderAttendance();
+    if (v === 'history') renderHistory();
+    if (v === 'payments') renderPayments();
+    if (v === 'outstanding') renderOutstanding();
+    if (v === 'cashbook') renderCashbook();
+    if (v === 'reports') renderReports();
+    if (v === 'settings') loadSettingsUI();
+    if (v === 'arrears') renderArrearsView();
+  }
+  $$('.sidebar nav a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); switchView(a.dataset.view); }));
+
+  // Dashboard
+  function renderDashboard() {
+    const att = DB.getAttendance(), pay = DB.getPayments(), cashTx = DB.getCash(), s = DB.getSettings();
+    const paidMap = DB.computePaidPerAttendance();
+    const oa = DB.getOpeningArrears(), allocated = DB.getAllocatedToArrears();
+    const sessions = att.length, swimmers = att.reduce((x,a)=>x+a.count,0), attendanceExpected = att.reduce((x,a)=>x+a.expected,0);
+    // ── CHANGE: Expected now includes Opening Arrears amount ──
+    const expected = attendanceExpected + (oa.amount || 0);
+    let paid = 0; att.forEach(a => paid += paidMap[a.id] || 0);
+    const outstanding = (expected - paid) - allocated;
+    let opening = s.openingBalance||0, income=0, other=0, exp=0, wd=0;
+    cashTx.forEach(t => { if (t.type==='income') income+=t.amount; else if (t.type==='other_income') other+=t.amount; else if (t.type==='expense') exp+=t.amount; else if (t.type==='withdrawal') wd+=t.amount; });
+    const cashInHand = opening + income + other - exp - wd;
+    $('#dashboard-stats').innerHTML = `
+      <div class="stat-card"><div class="label">Sessions</div><div class="value">${sessions}</div></div>
+      <div class="stat-card"><div class="label">Swimmers</div><div class="value">${swimmers}</div></div>
+      <div class="stat-card"><div class="label">Expected</div><div class="value">${fmt(expected)}</div></div>
+      <div class="stat-card"><div class="label">Payments</div><div class="value">${fmt(paid)}</div></div>
+      <div class="stat-card"><div class="label">Outstanding</div><div class="value" style="color:var(--warning)">${fmt(outstanding)}</div></div>
+      <div class="stat-card"><div class="label">Cash in Hand</div><div class="value" style="color:var(--success)">${fmt(cashInHand)}</div></div>
+      <div class="stat-card"><div class="label">Expenses</div><div class="value">${fmt(exp)}</div></div>
+      <div class="stat-card"><div class="label">Withdrawals</div><div class="value">${fmt(wd)}</div></div>`;
+    if (typeof Chart !== 'undefined') {
+      const sorted = [...att].sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(-7);
+      const c1 = document.getElementById('attendanceChart'); if (c1) { if (window._ac) window._ac.destroy(); window._ac = new Chart(c1, { type:'line', data:{ labels: sorted.map(a=>a.date), datasets:[{ label:'Swimmers', data: sorted.map(a=>a.count), borderColor:'#0b5e7c', tension:0.3, fill:false }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } } }); }
+      const c2 = document.getElementById('revenueChart'); if (c2) { if (window._rc) window._rc.destroy(); window._rc = new Chart(c2, { type:'bar', data:{ labels:['Expected','Received'], datasets:[{ label:'KES', data:[expected,paid], backgroundColor:['#0b5e7c','#2ecc71'] }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } } }); }
+      const mm = {}; pay.forEach(p => { const m = p.date.substring(0,7); mm[m] = (mm[m]||0) + p.amount; });
+      const c3 = document.getElementById('monthlyChart'); if (c3) { if (window._mc) window._mc.destroy(); window._mc = new Chart(c3, { type:'bar', data:{ labels: Object.keys(mm).sort(), datasets:[{ label:'Payments (KES)', data: Object.keys(mm).sort().map(k=>mm[k]), backgroundColor:'#1a7f9e' }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } } }); }
+    }
+  }
+
+  // Attendance
+  function renderAttendance() {
+    const att = DB.getAttendance().sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const paidMap = DB.computePaidPerAttendance();
+    const tb = $('#attendance-table tbody'); if (!tb) return;
+    tb.innerHTML = att.map(a => {
+      const paid = paidMap[a.id]||0, bal = a.expected-paid;
+      let st='Unpaid', cls='badge-unpaid';
+      if (paid >= a.expected) { st='Fully Paid'; cls='badge-paid'; } else if (paid>0) { st='Partially Paid'; cls='badge-partial'; }
+      return `<tr><td>${a.date}</td><td>${a.count}</td><td>${fmt(a.expected)}</td><td>${fmt(paid)}</td><td>${fmt(bal)}</td><td><span class="badge ${cls}">${st}</span></td><td><button class="small danger" data-del-att="${a.id}"><i class="fas fa-trash"></i></button></td></tr>`;
+    }).join('') || '<tr><td colspan="7" class="text-center text-muted">No attendance records yet.</td></tr>';
+    tb.querySelectorAll('[data-del-att]').forEach(b => b.addEventListener('click', async () => {
+      if (confirm('Delete this attendance record? Related allocations will also be removed.')) {
+        await DB.deleteAttendance(b.dataset.delAtt); await DB.reload(); renderAttendance(); renderDashboard(); toast('Attendance deleted');
+      }
+    }));
+  }
+  document.addEventListener('input', e => { if (e.target?.id === 'attendance-count') { const c = parseInt(e.target.value)||0; const f = $('#attendance-amount'); if (f) f.value = c*150; } });
+  $('#save-attendance').addEventListener('click', async () => {
+    const date = $('#attendance-date').value, count = parseInt($('#attendance-count').value);
+    if (!date || !count || count < 1) { alert('Enter valid date and number of swimmers.'); return; }
+    try { await DB.addAttendance(date, count); await DB.reload(); $('#attendance-count').value=''; $('#attendance-amount').value=0; renderAttendance(); renderDashboard(); toast('Attendance saved'); }
+    catch (e) { alert(e.message); }
+  });
+
+  // History
+  function renderHistory() {
+    const att = DB.getAttendance().sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const paidMap = DB.computePaidPerAttendance();
+    const q = ($('#history-search').value||'').toLowerCase();
+    const tb = $('#history-table tbody'); if (!tb) return;
+    tb.innerHTML = att.filter(a => a.date.toLowerCase().includes(q)).map(a => {
+      const paid = paidMap[a.id]||0, bal = a.expected-paid;
+      let st='Unpaid', cls='badge-unpaid';
+      if (paid >= a.expected) { st='Fully Paid'; cls='badge-paid'; } else if (paid>0) { st='Partially Paid'; cls='badge-partial'; }
+      return `<tr><td>${a.date}</td><td>${a.count}</td><td>${fmt(a.expected)}</td><td>${fmt(paid)}</td><td>${fmt(bal)}</td><td><span class="badge ${cls}">${st}</span></td><td><button class="small danger" data-del-att="${a.id}"><i class="fas fa-trash"></i></button></td></tr>`;
+    }).join('') || '<tr><td colspan="7" class="text-center text-muted">No records.</td></tr>';
+    tb.querySelectorAll('[data-del-att]').forEach(b => b.addEventListener('click', async () => {
+      if (confirm('Delete this attendance record?')) { await DB.deleteAttendance(b.dataset.delAtt); await DB.reload(); renderHistory(); renderDashboard(); toast('Deleted'); }
+    }));
+  }
+  $('#history-search').addEventListener('input', renderHistory);
+
+  // Payments
+  function renderPayments() {
+    const pays = DB.getPayments().sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const att = DB.getAttendance(), alloc = DB.getAllocations();
+    const tb = $('#payment-table tbody'); if (!tb) return;
+    tb.innerHTML = pays.map(p => {
+      const allocStr = alloc.filter(a => a.paymentId === p.id).map(a => {
+        if (a.attendanceId === 'opening_arrears') return `Arrears (${fmt(a.amount)})`;
+        const x = att.find(y => y.id === a.attendanceId); return x ? `${x.date} (${fmt(a.amount)})` : '—';
+      }).join(', ') || 'Unallocated';
+      return `<tr><td>${p.date}</td><td>${fmt(p.amount)}</td><td>${p.ref||'-'}</td><td>${p.notes||'-'}</td><td style="font-size:0.78rem;">${allocStr}</td><td><button class="small danger" data-del-pay="${p.id}"><i class="fas fa-trash"></i></button></td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="text-center text-muted">No payments recorded.</td></tr>';
+    tb.querySelectorAll('[data-del-pay]').forEach(b => b.addEventListener('click', async () => {
+      if (confirm('Delete this payment? Related cash and allocations will be removed.')) { await DB.deletePayment(b.dataset.delPay); await DB.reload(); renderPayments(); renderDashboard(); toast('Payment deleted'); }
+    }));
+    const paidMap = DB.computePaidPerAttendance();
+    const out = att.filter(a => (a.expected - (paidMap[a.id]||0)) > 0);
+    const al = $('#allocation-list');
+    al.innerHTML = out.map(a => `<label style="display:block; font-size:0.85rem; padding:4px 0;"><input type="checkbox" value="${a.id}" style="width:auto; display:inline-block;"> ${a.date} — ${a.count} swimmers — ${fmt(a.expected - (paidMap[a.id]||0))}</label>`).join('') || '<p class="text-muted">No outstanding attendance.</p>';
+  }
+  $('#payment-allocation').addEventListener('change', e => { const m = $('#manual-allocation'); if (e.target.value === 'manual') m.classList.remove('hidden'); else m.classList.add('hidden'); });
+  $('#save-payment').addEventListener('click', async () => {
+    const date = $('#payment-date').value, amount = parseFloat($('#payment-amount').value), ref = $('#payment-ref').value, notes = $('#payment-notes').value, mode = $('#payment-allocation').value;
+    if (!date || !amount || amount <= 0) { alert('Enter valid date and amount.'); return; }
+    let ids = [];
+    if (mode === 'manual') {
+      ids = Array.from(document.querySelectorAll('#allocation-list input:checked')).map(c => c.value);
+      if (!ids.length) { alert('Select at least one date.'); return; }
+    }
+    try { await DB.addPayment(date, amount, ref, notes, mode, ids); await DB.reload(); $('#payment-amount').value=''; $('#payment-ref').value=''; $('#payment-notes').value=''; renderPayments(); renderDashboard(); toast('Payment recorded'); Cloud.syncNow().catch(()=>{}); }
+    catch (e) { alert(e.message); }
+  });
+
+  // Outstanding
+  function renderOutstanding() {
+    const att = DB.getAttendance().sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const paidMap = DB.computePaidPerAttendance();
+    const oa = DB.getOpeningArrears(), allocated = DB.getAllocatedToArrears();
+    const arrRem = Math.max(0, (oa.amount||0) - allocated);
+    let total = arrRem;
+    let rows = '';
+    if (arrRem > 0) rows += `<tr><td><em>Opening Arrears</em></td><td>—</td><td>${fmt(oa.amount||0)}</td><td>${fmt(allocated)}</td><td>${fmt(arrRem)}</td><td><span class="badge badge-unpaid">Unpaid</span></td></tr>`;
+    att.forEach(a => {
+      const paid = paidMap[a.id]||0, bal = a.expected-paid; total += bal;
+      let st='Unpaid', cls='badge-unpaid';
+      if (paid >= a.expected) { st='Fully Paid'; cls='badge-paid'; } else if (paid>0) { st='Partially Paid'; cls='badge-partial'; }
+      rows += `<tr><td>${a.date}</td><td>${a.count}</td><td>${fmt(a.expected)}</td><td>${fmt(paid)}</td><td>${fmt(bal)}</td><td><span class="badge ${cls}">${st}</span></td></tr>`;
+    });
+    const tb = $('#outstanding-table tbody'); tb.innerHTML = rows || '<tr><td colspan="6" class="text-center text-muted">No records.</td></tr>';
+    $('#outstanding-summary').innerHTML = `<div class="stat-card"><div class="label">Total Outstanding</div><div class="value" style="color:var(--warning)">${fmt(total)}</div></div>`;
+  }
+
+  // Cashbook
+  function renderCashbook() {
+    const tx = DB.getCash().sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const s = DB.getSettings();
+    let op = s.openingBalance||0, inc=0, other=0, exp=0, wd=0;
+    tx.forEach(t => { if (t.type==='income') inc+=t.amount; else if (t.type==='other_income') other+=t.amount; else if (t.type==='expense') exp+=t.amount; else if (t.type==='withdrawal') wd+=t.amount; });
+    const bal = op+inc+other-exp-wd;
+    $('#cashbook-summary').innerHTML = `
+      <div class="stat-card"><div class="label">Opening</div><div class="value">${fmt(op)}</div></div>
+      <div class="stat-card"><div class="label">Cash Received</div><div class="value">${fmt(inc)}</div></div>
+      <div class="stat-card"><div class="label">Other Income</div><div class="value">${fmt(other)}</div></div>
+      <div class="stat-card"><div class="label">Expenses</div><div class="value">${fmt(exp)}</div></div>
+      <div class="stat-card"><div class="label">Withdrawals</div><div class="value">${fmt(wd)}</div></div>
+      <div class="stat-card"><div class="label">Cash in Hand</div><div class="value" style="color:var(--success)">${fmt(bal)}</div></div>`;
+    const tb = $('#cash-table tbody');
+    const labels = { income:'Cash Received', expense:'Expense', withdrawal:'Withdrawal', other_income:'Other Income' };
+    tb.innerHTML = tx.map(t => `<tr><td>${t.date}</td><td>${labels[t.type]||t.type}</td><td>${fmt(t.amount)}</td><td>${t.description||'-'}</td><td>${t.reference||'-'}</td><td><button class="small danger" data-del-cash="${t.id}"><i class="fas fa-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="6" class="text-center text-muted">No cash transactions.</td></tr>';
+    tb.querySelectorAll('[data-del-cash]').forEach(b => b.addEventListener('click', async () => {
+      if (confirm('Delete this cash transaction?')) { await DB.deleteCashTransaction(b.dataset.delCash); await DB.reload(); renderCashbook(); renderDashboard(); toast('Deleted'); }
+    }));
+  }
+  $('#save-cash').addEventListener('click', async () => {
+    const date = $('#cash-date').value, type = $('#cash-type').value, amount = parseFloat($('#cash-amount').value), desc = $('#cash-desc').value, ref = $('#cash-ref').value;
+    if (!date || !amount || amount <= 0) { alert('Enter valid date and amount.'); return; }
+    await DB.addCashTransaction(date, type, amount, desc, ref); await DB.reload();
+    $('#cash-amount').value=''; $('#cash-desc').value=''; $('#cash-ref').value='';
+    renderCashbook(); renderDashboard(); toast('Cash transaction added');
+  });
+
+  // Reports
+  function renderReports() {
+    const from = $('#report-from').value, to = $('#report-to').value;
+    let att = DB.getAttendance().sort((a,b)=>new Date(a.date)-new Date(b.date));
+    if (from) att = att.filter(a => a.date >= from);
+    if (to) att = att.filter(a => a.date <= to);
+    const paidMap = DB.computePaidPerAttendance();
+    const sessions = att.length, swimmers = att.reduce((s,a)=>s+a.count,0), attendanceExpected = att.reduce((s,a)=>s+a.expected,0);
+    // ── CHANGE: Expected includes Opening Arrears ──
+    const oa = DB.getOpeningArrears();
+    const allocatedToArrears = DB.getAllocatedToArrears();
+    const expected = attendanceExpected + (oa.amount || 0);
+    const paid = att.reduce((s,a)=>s+(paidMap[a.id]||0),0);
+    const outstanding = expected - paid - allocatedToArrears;
+    const tx = DB.getCash();
+    let exp=0, wd=0;
+    tx.forEach(t => { if (t.type==='expense') exp+=t.amount; if (t.type==='withdrawal') wd+=t.amount; });
+    $('#report-stats').innerHTML = `
+      <div class="stat-card"><div class="label">Sessions</div><div class="value">${sessions}</div></div>
+      <div class="stat-card"><div class="label">Swimmers</div><div class="value">${swimmers}</div></div>
+      <div class="stat-card"><div class="label">Expected</div><div class="value">${fmt(expected)}</div></div>
+      <div class="stat-card"><div class="label">Paid</div><div class="value">${fmt(paid)}</div></div>
+      <div class="stat-card"><div class="label">Outstanding</div><div class="value">${fmt(outstanding)}</div></div>
+      <div class="stat-card"><div class="label">Expenses</div><div class="value">${fmt(exp)}</div></div>
+      <div class="stat-card"><div class="label">Withdrawals</div><div class="value">${fmt(wd)}</div></div>`;
+    const tb = $('#report-table tbody');
+    // ── CHANGE: Include Opening Arrears row so table reconciles with totals ──
+    const arrearsRemaining = Math.max(0, (oa.amount || 0) - allocatedToArrears);
+    let arrearsRow = '';
+    if (arrearsRemaining > 0 || allocatedToArrears > 0) {
+      arrearsRow = `<tr>
+        <td><em>Opening Arrears</em></td>
+        <td>—</td>
+        <td>${fmt(oa.amount || 0)}</td>
+        <td>${fmt(allocatedToArrears)}</td>
+        <td>${fmt(arrearsRemaining)}</td>
+        <td><span class="badge ${arrearsRemaining > 0 ? 'badge-unpaid' : 'badge-paid'}">${arrearsRemaining > 0 ? 'Unpaid' : 'Fully Paid'}</span></td>
+      </tr>`;
+    }
+    tb.innerHTML = arrearsRow + (att.map(a => {
+      const p = paidMap[a.id]||0, b = a.expected-p;
+      let st='Unpaid', cls='badge-unpaid';
+      if (p >= a.expected) { st='Fully Paid'; cls='badge-paid'; } else if (p>0) { st='Partially Paid'; cls='badge-partial'; }
+      return `<tr><td>${a.date}</td><td>${a.count}</td><td>${fmt(a.expected)}</td><td>${fmt(p)}</td><td>${fmt(b)}</td><td><span class="badge ${cls}">${st}</span></td></tr>`;
+    }).join('')) || '<tr><td colspan="6" class="text-center text-muted">No records.</td></tr>';
+  }
+  $('#generate-report').addEventListener('click', renderReports);
+  $('#export-csv').addEventListener('click', () => {
+    const att = DB.getAttendance(), paidMap = DB.computePaidPerAttendance();
+    const from = $('#report-from').value, to = $('#report-to').value;
+    const oa = DB.getOpeningArrears();
+    const allocatedToArrears = DB.getAllocatedToArrears();
+    const arrearsRemaining = Math.max(0, (oa.amount || 0) - allocatedToArrears);
+
+    const rows = [['Date','Swimmers','Expected','Paid','Balance','Status']];
+    // ── CHANGE: Opening Arrears row in CSV ──
+    if ((oa.amount || 0) > 0 || allocatedToArrears > 0) {
+      rows.push([
+        'Opening Arrears',
+        '',
+        (oa.amount || 0),
+        allocatedToArrears,
+        arrearsRemaining,
+        arrearsRemaining > 0 ? 'Unpaid' : 'Fully Paid'
+      ]);
+    }
+    let totCount = 0, totExpected = (oa.amount || 0), totPaid = allocatedToArrears, totBalance = arrearsRemaining;
+    att.filter(a => (!from || a.date>=from) && (!to || a.date<=to)).forEach(a => {
+      const p = paidMap[a.id]||0, b = a.expected-p;
+      let st='Unpaid'; if (p>=a.expected) st='Fully Paid'; else if (p>0) st='Partially Paid';
+      rows.push([a.date, a.count, a.expected, p, b, st]);
+      totCount += a.count; totExpected += a.expected; totPaid += p; totBalance += b;
+    });
+    // ── CHANGE: TOTALS row at bottom of CSV ──
+    rows.push(['TOTALS', totCount, totExpected, totPaid, totBalance, '']);
+
+    const blob = new Blob([rows.map(r=>r.join(',')).join('\n')], { type:'text/csv' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'swim_report.csv'; a.click(); URL.revokeObjectURL(url);
+  });
+  $('#print-report').addEventListener('click', () => window.print());
+
+  // Backup
+  $('#export-json').addEventListener('click', () => {
+    const data = { attendance: DB.getAttendance(), payments: DB.getPayments(), cash: DB.getCash(), allocations: DB.getAllocations(), settings: DB.getSettings(), openingArrears: DB.getOpeningArrears() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `swim_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(url);
+  });
+  $('#import-json').addEventListener('click', () => {
+    const f = $('#import-file').files[0]; if (!f) { alert('Select a file.'); return; }
+    if (!confirm('Restoring will overwrite ALL current data. Continue?')) return;
+    const r = new FileReader();
+    r.onload = async e => {
+      try {
+        const d = JSON.parse(e.target.result);
+        // Write directly to localStorage keys so next reload picks up. Simpler: reset then write.
+        await Cloud.clearAll();
+        const now = new Date().toISOString();
+        for (const x of d.attendance||[]) await Cloud.put('attendance', { ...x, updated_at: x.updated_at||now, device_id: Cloud.getDeviceId(), sync_status: 'pending' });
+        for (const x of d.payments||[]) await Cloud.put('payments', { ...x, updated_at: x.updated_at||now, device_id: Cloud.getDeviceId(), sync_status: 'pending' });
+        for (const x of d.cash||[]) await Cloud.put('cash', { ...x, updated_at: x.updated_at||now, device_id: Cloud.getDeviceId(), sync_status: 'pending' });
+        for (const x of d.allocations||[]) await Cloud.put('allocations', { ...x, updated_at: x.updated_at||now, device_id: Cloud.getDeviceId(), sync_status: 'pending' });
+        if (d.settings) await Cloud.put('settings', { id:'app', ...d.settings, updated_at: now, device_id: Cloud.getDeviceId(), sync_status: 'pending' });
+        if (d.openingArrears) await Cloud.put('opening_arrears', { id:'opening', ...d.openingArrears, updated_at: now, device_id: Cloud.getDeviceId(), sync_status: 'pending' });
+        toast('Data restored. Reloading...'); setTimeout(() => location.reload(), 800);
+      } catch (err) { alert('Invalid file: ' + err.message); }
+    };
+    r.readAsText(f);
+  });
+  $('#reset-data').addEventListener('click', async () => {
+    if (confirm('PERMANENTLY DELETE ALL DATA?')) { await DB.resetAll(); toast('All data cleared. Reloading...'); setTimeout(() => location.reload(), 500); }
+  });
+
+  // Settings
+  function loadSettingsUI() {
+    const s = DB.getSettings(); $('#opening-balance').value = s.openingBalance||0;
+    const oa = DB.getOpeningArrears();
+    $('#arrears-amount').value = oa.amount||0;
+    $('#arrears-effective-date').value = oa.date||'';
+    $('#arrears-notes').value = oa.description||'';
+    $('#cloud-url').value = Cloud.getCloudUrl();
+  }
+  $('#save-opening-balance').addEventListener('click', async () => {
+    const v = parseFloat($('#opening-balance').value)||0;
+    await DB.setOpeningBalance(v); renderDashboard(); toast('Opening balance saved'); Cloud.syncNow().catch(()=>{});
+  });
+  $('#save-cloud-url').addEventListener('click', () => { Cloud.setCloudUrl($('#cloud-url').value.trim()); toast('Cloud URL saved'); Cloud.syncNow().catch(()=>{}); });
+  $('#test-cloud').addEventListener('click', async () => {
+    const url = ($('#cloud-url').value || Cloud.getCloudUrl()).trim();
+    if (!url) { alert('Enter a URL first.'); return; }
+    try { const r = await fetch(url + '?action=healthCheck'); const j = await r.json(); toast(j.ok ? '✅ Connected: ' + (j.time||'OK') : '❌ ' + (j.error||'fail')); }
+    catch (e) { toast('❌ ' + e.message); }
+  });
+
+  // Arrears view
+  function renderArrearsView() {
+    const oa = DB.getOpeningArrears(), alloc = DB.getAllocatedToArrears(), rem = Math.max(0, (oa.amount||0) - alloc);
+    $('#arrears-amount-view').value = oa.amount||0;
+    $('#arrears-effective-date-view').value = oa.date||'';
+    $('#arrears-notes-view').value = oa.description||'';
+    $('#arrears-status').innerHTML = `
+      <div class="stat-card"><div class="label">Opening Arrears</div><div class="value" style="color:var(--warning)">${fmt(oa.amount||0)}</div></div>
+      <div class="stat-card"><div class="label">Paid Against</div><div class="value">${fmt(alloc)}</div></div>
+      <div class="stat-card"><div class="label">Remaining</div><div class="value" style="color:var(--danger)">${fmt(rem)}</div></div>`;
+    const pays = DB.getPayments(), all = DB.getAllocations();
+    const relevant = pays.filter(p => all.some(a => a.paymentId === p.id && a.attendanceId === 'opening_arrears'))
+      .sort((a,b) => new Date(a.date) - new Date(b.date));
+    let running = oa.amount||0;
+    const rows = relevant.map(p => {
+      const amt = all.filter(a => a.paymentId === p.id && a.attendanceId === 'opening_arrears').reduce((s,a)=>s+a.amount,0);
+      running -= amt;
+      return `<tr><td>${p.date}</td><td>${fmt(p.amount)}</td><td>${fmt(amt)}</td><td>${fmt(Math.max(0, running))}</td></tr>`;
+    }).join('');
+    $('#arrears-payment-table tbody').innerHTML = rows || '<tr><td colspan="4" class="text-center text-muted">No payments allocated to arrears.</td></tr>';
+  }
+  $('#save-arrears-view').addEventListener('click', async () => {
+    const amount = parseFloat($('#arrears-amount-view').value)||0;
+    const date = $('#arrears-effective-date-view').value||null;
+    const desc = $('#arrears-notes-view').value||'';
+    await DB.setOpeningArrears({ amount, date, description: desc });
+    await DB.reload(); renderArrearsView(); renderDashboard(); toast('Opening arrears saved'); Cloud.syncNow().catch(()=>{});
+  });
+
+  // Sync Now button
+  $('#syncNowBtn').addEventListener('click', () => { Cloud.syncNow().then(() => toast('Sync complete')).catch(e => toast('Sync error: ' + e.message)); });
+
+  // Default dates
+  const today = new Date().toISOString().split('T')[0];
+  ['attendance-date','payment-date','cash-date','report-from','report-to','arrears-effective-date-view','arrears-effective-date'].forEach(id => { const el = document.getElementById(id); if (el) el.value = today; });
+
+  // Initialize
+  switchView('dashboard');
+  renderAttendance();
+  renderPayments();
+})();
+</script>
+</body>
+</html>
